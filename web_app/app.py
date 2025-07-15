@@ -33,7 +33,7 @@ def song(song_id):
     conn.close()
     if not result:
         return jsonify({"error": "Трек не найден"}), 404
-    return jsonify({"url": f"https://api.telegram.org/file/bot <YOUR_BOT_TOKEN>/{result['file_id']}"})
+    return jsonify({"url": f"https://api.telegram.org/file/bot <7755566426:AAFh-P-7ZrjLtww5WDibYyFkjXJPS4Py1r4>/{result['file_id']}"})
 
 if __name__ == "__main__":
     app.run(debug=True)
