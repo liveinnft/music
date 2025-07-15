@@ -2,68 +2,324 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>{{ playlist_name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap @5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Плейлист</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         .song-card {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
         }
         .song-card:hover {
-            transform: scale(1.02);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .song-card.playing {
+            background: rgba(40, 167, 69, 0.3);
+            border-color: rgba(40, 167, 69, 0.5);
+        }
+        .btn-play {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn-play:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        .btn-play.playing {
+            background: linear-gradient(45deg, #dc3545, #fd7e14);
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .player-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            backdrop-filter: blur(10px);
+        }
+        .current-track {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .current-track h6 {
+            margin: 0;
+            color: #20c997;
+        }
+        .current-track p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+        }
+        audio {
+            width: 100%;
+            height: 50px;
+            border-radius: 10px;
+        }
+        .back-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 10px;
+            padding: 10px 20px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
-    <div class="container py-5">
-        <h1 class="text-center mb-4">{{ playlist_name }}</h1>
-        <div class="row row-cols-1 row-cols-md-2 g-4">
-            {% for song in songs %}
-                <div class="col">
-                    <div class="card song-card shadow-sm">
+    <div class="container">
+        <div class="mb-4">
+            <a href="index.html" class="back-button">
+                ← Назад к плейлистам
+            </a>
+        </div>
+        
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold mb-3" id="playlist-title">🎵 Плейлист</h1>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загружаем треки...</p>
+        </div>
+        
+        <div id="error-container" class="d-none">
+            <div class="error-message">
+                <h5>❌ Ошибка подключения</h5>
+                <p id="error-text"></p>
+                <button class="btn btn-light btn-sm" onclick="loadPlaylist()">
+                    🔄 Попробовать снова
+                </button>
+            </div>
+        </div>
+        
+        <div id="songs-container" class="row row-cols-1 row-cols-md-2 g-4 d-none">
+            <!-- Треки будут добавлены динамически -->
+        </div>
+        
+        <div id="empty-state" class="text-center d-none">
+            <div class="mb-4">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6"></path>
+                </svg>
+            </div>
+            <h3>В этом плейлисте пока нет треков</h3>
+            <p class="lead">Добавьте треки через Telegram-бота!</p>
+        </div>
+        
+        <!-- Плеер -->
+        <div id="player-container" class="player-container d-none">
+            <div class="current-track">
+                <h6 id="current-title">Не выбран трек</h6>
+                <p id="current-author">Неизвестный исполнитель</p>
+            </div>
+            <audio id="audio-player" controls>
+                Ваш браузер не поддерживает аудио элемент.
+            </audio>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        let currentPlaylist = null;
+        let currentSongIndex = 0;
+        let currentSongs = [];
+        
+        // Получаем ID плейлиста из URL
+        function getPlaylistId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+        
+        // Функция загрузки плейлиста
+        async function loadPlaylist() {
+            const playlistId = getPlaylistId();
+            if (!playlistId) {
+                showError('Не указан ID плейлиста');
+                return;
+            }
+            
+            const loading = document.getElementById('loading');
+            const errorContainer = document.getElementById('error-container');
+            const songsContainer = document.getElementById('songs-container');
+            const emptyState = document.getElementById('empty-state');
+            
+            // Показываем загрузку
+            loading.classList.remove('d-none');
+            errorContainer.classList.add('d-none');
+            songsContainer.classList.add('d-none');
+            emptyState.classList.add('d-none');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/playlist/${playlistId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    loading.classList.add('d-none');
+                    currentPlaylist = data;
+                    currentSongs = data.songs;
+                    
+                    // Обновляем заголовок
+                    document.getElementById('playlist-title').textContent = data.playlist_name;
+                    
+                    if (data.songs.length === 0) {
+                        emptyState.classList.remove('d-none');
+                    } else {
+                        displaySongs(data.songs);
+                        songsContainer.classList.remove('d-none');
+                        document.getElementById('player-container').classList.remove('d-none');
+                    }
+                } else {
+                    throw new Error(data.error || 'Неизвестная ошибка');
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке плейлиста:', error);
+                showError(`Не удалось загрузить плейлист: ${error.message}`);
+            }
+        }
+        
+        // Функция отображения треков
+        function displaySongs(songs) {
+            const container = document.getElementById('songs-container');
+            container.innerHTML = '';
+            
+            songs.forEach((song, index) => {
+                const songCard = document.createElement('div');
+                songCard.className = 'col';
+                songCard.innerHTML = `
+                    <div class="card song-card h-100" data-song-id="${song.id}" data-song-index="${index}">
                         <div class="card-body d-flex align-items-center">
                             <div class="flex-grow-1">
-                                <h5 class="card-title">{{ song.title }}</h5>
-                                <p class="card-text text-muted">{{ song.author }}</p>
+                                <h5 class="card-title">${song.title}</h5>
+                                <p class="card-text text-muted">${song.author}</p>
                             </div>
-                            <button onclick="playSong('{{ song.id }}')" class="btn btn-outline-success ms-2">
-                                ▶
+                            <button onclick="playSong(${index})" class="btn btn-play btn-sm" data-song-button="${index}">
+                                ▶️
                             </button>
                         </div>
                     </div>
-                </div>
-            {% endfor %}
-        </div>
-        <div class="mt-4">
-            <audio id="player" controls style="width: 100%; max-width: 600px;"></audio>
-        </div>
-    </div>
-    <script>
-        const player = document.getElementById('player');
-        async function playSong(songId) {
+                `;
+                container.appendChild(songCard);
+            });
+        }
+        
+        // Функция воспроизведения трека
+        async function playSong(songIndex) {
+            const song = currentSongs[songIndex];
+            const audioPlayer = document.getElementById('audio-player');
+            const currentTitle = document.getElementById('current-title');
+            const currentAuthor = document.getElementById('current-author');
+            
+            // Обновляем информацию о текущем треке
+            currentTitle.textContent = song.title;
+            currentAuthor.textContent = song.author;
+            
+            // Убираем выделение со всех карточек
+            document.querySelectorAll('.song-card').forEach(card => {
+                card.classList.remove('playing');
+            });
+            document.querySelectorAll('.btn-play').forEach(btn => {
+                btn.classList.remove('playing');
+                btn.textContent = '▶️';
+            });
+            
+            // Выделяем текущую карточку
+            const currentCard = document.querySelector(`[data-song-index="${songIndex}"]`);
+            const currentButton = document.querySelector(`[data-song-button="${songIndex}"]`);
+            
+            if (currentCard) {
+                currentCard.classList.add('playing');
+            }
+            if (currentButton) {
+                currentButton.classList.add('playing');
+                currentButton.textContent = '⏸️';
+            }
+            
             try {
-                const response = await fetch(`/song/${songId}`);
-                if (!response.ok) throw new Error("Ошибка загрузки трека");
+                // Получаем ссылку на файл
+                const response = await fetch(`${API_BASE_URL}/api/song/${song.id}`);
                 const data = await response.json();
-                player.src = data.url;
-                player.play();
+                
+                if (data.success) {
+                    audioPlayer.src = data.url;
+                    audioPlayer.play();
+                    currentSongIndex = songIndex;
+                } else {
+                    throw new Error(data.error || 'Не удалось получить файл');
+                }
             } catch (error) {
-                alert("Не удалось воспроизвести трек.");
-                console.error(error);
+                console.error('Ошибка при воспроизведении:', error);
+                alert(`Не удалось воспроизвести трек: ${error.message}`);
+                
+                // Убираем выделение при ошибке
+                if (currentCard) currentCard.classList.remove('playing');
+                if (currentButton) {
+                    currentButton.classList.remove('playing');
+                    currentButton.textContent = '▶️';
+                }
             }
         }
-
-        // Автопроигрывание первого трека
-        window.onload = () => {
-            const firstButton = document.querySelector('.song-card button');
-            if (firstButton && firstButton.hasAttribute('onclick')) {
-                const songId = firstButton.getAttribute('onclick').match(/'([^']+)'/)[1];
-                playSong(songId);
-            }
-        };
-    </script>
-</body>
-</html>
+        
+        // Функция показа ошибки
+        function showError(message) {
+            const loading = document.getElementById('loading');
+            const errorContainer = document.getElementById('error-container');
+            const errorText = document.getElementById('error-text');
+            
+            loading.classList.add('d-none');
+            errorContainer.classList.remove('d-none');
+            errorText.textContent = message;
+        }
+        
+        // Обработчики событий для плеера

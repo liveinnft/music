@@ -1,0 +1,29 @@
+# 📁 Новая структура проекта
+
+## Серверная часть (PythonAnywhere)
+```
+music_bot_server/
+├── bot.py                 # Telegram бот
+├── database.py           # База данных
+├── api.py                # API для получения файлов
+├── requirements.txt
+└── music.db
+```
+
+## Фронтенд (GitHub Pages)
+```
+music_bot_frontend/
+├── index.html           # Главная страница
+├── playlist.html        # Страница плейлиста
+├── js/
+│   └── app.js          # JavaScript логика
+├── css/
+│   └── style.css       # Стили
+└── config.js           # Конфигурация API
+```
+
+## Основные изменения:
+1. **API endpoint** для получения файлов из Telegram
+2. **CORS** для кросс-доменных запросов
+3. **Статический фронтенд** без Flask
+4. **Конфигурация** для разных окружений
