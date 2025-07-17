@@ -10,6 +10,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .container {
             background: rgba(255, 255, 255, 0.1);
@@ -60,9 +61,11 @@
             color: white;
             font-weight: bold;
             transition: all 0.3s ease;
+            border-radius: 8px;
+            padding: 8px 16px;
         }
         .btn-play:hover {
-            transform: scale(1.1);
+            transform: scale(1.05);
             box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
         }
         .error-message {
@@ -73,6 +76,37 @@
             border-radius: 10px;
             margin: 20px 0;
         }
+        .stats-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(180deg);
+        }
+        .playlist-info {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -80,6 +114,23 @@
         <div class="text-center mb-5">
             <h1 class="display-4 fw-bold mb-3">🎵 Музыкальные плейлисты</h1>
             <p class="lead">Ваша музыкальная коллекция всегда под рукой</p>
+        </div>
+        
+        <div id="stats-info" class="stats-info d-none">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong id="total-playlists">0</strong>
+                    <div>Плейлистов</div>
+                </div>
+                <div class="col-md-4">
+                    <strong id="total-songs">0</strong>
+                    <div>Треков</div>
+                </div>
+                <div class="col-md-4">
+                    <strong id="api-status">🔄</strong>
+                    <div>Статус API</div>
+                </div>
+            </div>
         </div>
         
         <div id="loading" class="loading">
@@ -129,13 +180,9 @@
     </div>
 
     <!-- Кнопка обновления -->
-    <div class="fixed-bottom p-3" style="z-index: 1000;">
-        <div class="d-flex justify-content-end">
-            <button onclick="loadPlaylists()" class="btn btn-light btn-sm">
-                🔄 Обновить
-            </button>
-        </div>
-    </div>
+    <button onclick="loadPlaylists()" class="btn refresh-btn" title="Обновить">
+        🔄
+    </button>
 
     <script src="config.js"></script>
     <script>
@@ -145,19 +192,34 @@
             const errorContainer = document.getElementById('error-container');
             const playlistsContainer = document.getElementById('playlists-container');
             const emptyState = document.getElementById('empty-state');
+            const statsInfo = document.getElementById('stats-info');
             
             // Показываем загрузку
             loading.classList.remove('d-none');
             errorContainer.classList.add('d-none');
             playlistsContainer.classList.add('d-none');
             emptyState.classList.add('d-none');
+            statsInfo.classList.add('d-none');
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/playlists`);
+                const response = await fetch(`${API_BASE_URL}/api/playlists`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
                     loading.classList.add('d-none');
+                    
+                    // Обновляем статистику
+                    updateStats(data.playlists);
                     
                     if (data.playlists.length === 0) {
                         emptyState.classList.remove('d-none');
@@ -165,6 +227,8 @@
                         displayPlaylists(data.playlists);
                         playlistsContainer.classList.remove('d-none');
                     }
+                    
+                    statsInfo.classList.remove('d-none');
                 } else {
                     throw new Error(data.error || 'Неизвестная ошибка');
                 }
@@ -174,7 +238,33 @@
                 errorContainer.classList.remove('d-none');
                 document.getElementById('error-text').textContent = 
                     `Не удалось загрузить плейлисты: ${error.message}`;
+                
+                // Обновляем статус API
+                document.getElementById('api-status').textContent = '❌';
+                statsInfo.classList.remove('d-none');
             }
+        }
+        
+        // Функция обновления статистики
+        async function updateStats(playlists) {
+            document.getElementById('total-playlists').textContent = playlists.length;
+            document.getElementById('api-status').textContent = '✅';
+            
+            // Подсчитываем общее количество треков
+            let totalSongs = 0;
+            for (const playlist of playlists) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/playlist/${playlist.id}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        totalSongs += data.songs.length;
+                    }
+                } catch (error) {
+                    console.error(`Ошибка при загрузке плейлиста ${playlist.id}:`, error);
+                }
+            }
+            
+            document.getElementById('total-songs').textContent = totalSongs;
         }
         
         // Функция отображения плейлистов
@@ -187,19 +277,68 @@
                 playlistCard.className = 'col';
                 playlistCard.innerHTML = `
                     <div class="card playlist-card h-100">
-                        <div class="card-body d-flex align-items-center">
-                            <div class="flex-grow-1">
-                                <h5 class="card-title">${playlist.name}</h5>
-                                <p class="card-text text-muted">ID: ${playlist.id}</p>
+                        <div class="card-body">
+                            <h5 class="card-title">${escapeHtml(playlist.name)}</h5>
+                            <div class="playlist-info">
+                                <small>ID: ${playlist.id}</small>
                             </div>
-                            <button onclick="openPlaylist(${playlist.id})" class="btn btn-play btn-sm">
-                                ▶️ Открыть
-                            </button>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div id="playlist-songs-${playlist.id}" class="text-muted">
+                                    <small>Загружаем...</small>
+                                </div>
+                                <button onclick="openPlaylist(${playlist.id})" class="btn btn-play btn-sm">
+                                    ▶️ Открыть
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
                 container.appendChild(playlistCard);
+                
+                // Загружаем информацию о треках для каждого плейлиста
+                loadPlaylistInfo(playlist.id);
             });
+        }
+        
+        // Функция загрузки информации о плейлисте
+        async function loadPlaylistInfo(playlistId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/playlist/${playlistId}`);
+                const data = await response.json();
+                
+                const infoElement = document.getElementById(`playlist-songs-${playlistId}`);
+                if (infoElement) {
+                    if (data.success) {
+                        const count = data.songs.length;
+                        infoElement.innerHTML = `<small>${count} ${getSongCountText(count)}</small>`;
+                    } else {
+                        infoElement.innerHTML = `<small>Пусто</small>`;
+                    }
+                }
+            } catch (error) {
+                const infoElement = document.getElementById(`playlist-songs-${playlistId}`);
+                if (infoElement) {
+                    infoElement.innerHTML = `<small>Ошибка загрузки</small>`;
+                }
+            }
+        }
+        
+        // Функция получения правильного склонения для количества песен
+        function getSongCountText(count) {
+            if (count % 10 === 1 && count % 100 !== 11) {
+                return 'трек';
+            } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+                return 'трека';
+            } else {
+                return 'треков';
+            }
+        }
+        
+        // Функция экранирования HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         // Функция открытия плейлиста
@@ -208,7 +347,12 @@
         }
         
         // Загружаем плейлисты при загрузке страницы
-        document.addEventListener('DOMContentLoaded', loadPlaylists);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPlaylists();
+            
+            // Автоматическое обновление каждые 30 секунд
+            setInterval(loadPlaylists, 30000);
+        });
     </script>
 </body>
 </html>
